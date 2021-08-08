@@ -17,7 +17,7 @@ LinvoDB.defaults.store = { db: require('medeadown') };
 const ImportType = {
   Matches: 1,
   Collections: 2,
-  Teams: 3
+  Teams: 3,
 };
 
 // ok so you should never call raw db ops on the _db object unless you are debugging.
@@ -32,14 +32,14 @@ class Database {
 
   compactDB(store, callback) {
     let mdb = medea();
-    mdb.open(this._path + '/' + store + '.ldb', function(err) {
+    mdb.open(this._path + '/' + store + '.ldb', function (err) {
       if (err) {
         console.log(err);
         callback();
         return;
       }
-      
-      mdb.compact(function(err) {
+
+      mdb.compact(function (err) {
         if (err) {
           console.log(err);
         }
@@ -64,10 +64,10 @@ class Database {
 
   destroy(callback) {
     var self = this;
-    medea.destroy(path.join(self._path, 'matches.ldb'), function() {
-      medea.destroy(path.join(self._path, 'hero.ldb'), function() {
-        medea.destroy(path.join(self._path, 'players.ldb'), function() {
-          medea.destroy(path.join(self._path, 'settings.ldb'), function() {
+    medea.destroy(path.join(self._path, 'matches.ldb'), function () {
+      medea.destroy(path.join(self._path, 'hero.ldb'), function () {
+        medea.destroy(path.join(self._path, 'players.ldb'), function () {
+          medea.destroy(path.join(self._path, 'settings.ldb'), function () {
             callback();
           });
         });
@@ -82,20 +82,20 @@ class Database {
         self._db.players.store.close(function () {
           self._db.settings.store.close(function () {
             delete self._db;
-            self.compactDB('matches', function() {
-              self.compactDB('hero', function() {
-                self.compactDB('players', function() {
-                  self.compactDB('settings', function() {
+            self.compactDB('matches', function () {
+              self.compactDB('hero', function () {
+                self.compactDB('players', function () {
+                  self.compactDB('settings', function () {
                     self._db = {};
                     self._db.matches = new LinvoDB('matches', {}, { filename: self._path + '/matches.ldb' });
                     self._db.heroData = new LinvoDB('heroData', {}, { filename: self._path + '/hero.ldb' });
                     self._db.players = new LinvoDB('players', {}, { filename: self._path + '/players.ldb' });
                     self._db.settings = new LinvoDB('settings', {}, { filename: self._path + '/settings.ldb' });
-        
+
                     self._db.matches.ensureIndex({ fieldName: 'map' });
                     self._db.heroData.ensureIndex({ fieldName: 'hero' });
                     self._db.players.ensureIndex({ fieldName: 'hero' });
-        
+
                     self._collection = null;
                     callback();
                   });
@@ -127,22 +127,35 @@ class Database {
   }
 
   getCollections(callback) {
-    this._db.settings.find({type: 'collection'}, callback);
+    this._db.settings.find({ type: 'collection' }, callback);
   }
 
   addCollection(name, onComplete) {
-    this._db.settings.insert({
-      type: 'collection',
-      name: name
-    }, onComplete);
+    this._db.settings.insert(
+      {
+        type: 'collection',
+        name: name,
+      },
+      onComplete,
+    );
   }
 
   deleteCollection(collectionID, onComplete) {
     var self = this;
-    this._db.settings.remove({ _id: collectionID }, {}, function(err, removed) {
-      self._db.matches.update({collection: collectionID}, { $pull: { collection: collectionID }}, {}, function(err) {
-        self._db.heroData.update({collection: collectionID}, { $pull: { collection: collectionID }}, {multi: true}, onComplete);
-      });
+    this._db.settings.remove({ _id: collectionID }, {}, function (err, removed) {
+      self._db.matches.update(
+        { collection: collectionID },
+        { $pull: { collection: collectionID } },
+        {},
+        function (err) {
+          self._db.heroData.update(
+            { collection: collectionID },
+            { $pull: { collection: collectionID } },
+            { multi: true },
+            onComplete,
+          );
+        },
+      );
     });
   }
 
@@ -152,20 +165,19 @@ class Database {
     this._db.matches.find({}, function (err, docs) {
       fs.writeFileSync(path.join(dir, 'matches.json'), JSON.stringify(docs, null, 2));
 
-      self._db.heroData.find({}, function(err, docs2) {
+      self._db.heroData.find({}, function (err, docs2) {
         fs.writeFileSync(path.join(dir, 'heroData.json'), JSON.stringify(docs2, null, 2));
 
-        self._db.players.find({}, function(err, docs3) {
+        self._db.players.find({}, function (err, docs3) {
           fs.writeFileSync(path.join(dir, 'players.json'), JSON.stringify(docs3, null, 2));
 
-          self._db.settings.find({}, function(err, docs4) {
+          self._db.settings.find({}, function (err, docs4) {
             fs.writeFileSync(path.join(dir, 'settings.json'), JSON.stringify(docs4, null, 2));
 
-            if (final)
-              final();
+            if (final) final();
           });
         });
-      })
+      });
     });
   }
 
@@ -176,17 +188,17 @@ class Database {
   // i don't think the next two need callbacks but if so i guess i'll have to add it
   addMatchToCollection(matchID, collectionID) {
     // this actually needs to modify two databases to ensure proper data aggregation
-    this._db.matches.update({ _id: matchID }, { $addToSet: { collection: collectionID }}, {});
-    this._db.heroData.update({ matchID: matchID }, { $addToSet: { collection: collectionID }}, { multi: true });
+    this._db.matches.update({ _id: matchID }, { $addToSet: { collection: collectionID } }, {});
+    this._db.heroData.update({ matchID: matchID }, { $addToSet: { collection: collectionID } }, { multi: true });
   }
 
   removeMatchFromCollection(matchID, collectionID) {
-    this._db.matches.update({ _id: matchID }, { $pull: { collection: collectionID }}, {});
-    this._db.heroData.update({ matchID: matchID }, { $pull: { collection: collectionID }}, { multi: true });
+    this._db.matches.update({ _id: matchID }, { $pull: { collection: collectionID } }, {});
+    this._db.heroData.update({ matchID: matchID }, { $pull: { collection: collectionID } }, { multi: true });
   }
 
   renameCollection(collectionID, name, onComplete) {
-    this._db.settings.update({_id: collectionID}, { $set: {name: name}}, {}, onComplete);
+    this._db.settings.update({ _id: collectionID }, { $set: { name: name } }, {}, onComplete);
   }
 
   setCollection(collectionID) {
@@ -218,9 +230,9 @@ class Database {
             //fs.removeSync(self._path + '/settings.ldb');
 
             callback();
-          })
-        })
-      })
+          });
+        });
+      });
     });
   }
 
@@ -238,60 +250,67 @@ class Database {
 
     if (!collection) {
       match.collection = [];
-    }
-    else {
+    } else {
       match.collection = collection;
     }
 
     // temporary relaxation of match length param for duplicate detection
-    this._db.matches.update({ 'map' : match.map, 'date' : match.date, 'type' : match.type }, match, {upsert: true}, function (err, numReplaced, newDoc) {
-      if (!newDoc) {
-        console.log("Duplicate match found, skipping player update");
-      }
-      else {
-        // update and insert players
-        let parr = [];
-        for (var i in players) {
-          players[i].matchID = newDoc._id;
-          players[i].collection = newDoc.collection;
-          parr.push(players[i]);
-        }
-
-        self._db.heroData.insert(parr, function(err, docs) {
-          console.log("Inserted new match " + newDoc._id);
-
+    this._db.matches.update(
+      { map: match.map, date: match.date, type: match.type },
+      match,
+      { upsert: true },
+      function (err, numReplaced, newDoc) {
+        if (!newDoc) {
+          console.log('Duplicate match found, skipping player update');
+        } else {
+          // update and insert players
+          let parr = [];
           for (var i in players) {
-            // log unique players in the player database
-            var playerDbEntry = {};
-            playerDbEntry._id = players[i].ToonHandle;
-            playerDbEntry.name = players[i].name;
-            playerDbEntry.uuid = players[i].uuid;
-            playerDbEntry.region = players[i].region;
-            playerDbEntry.realm = players[i].realm;
-
-            // in general this will ensure the most recent tag gets associated with each player
-            playerDbEntry.tag = players[i].tag;
-
-            var updateEntry = { $set: playerDbEntry, $inc: { matches: 1}};
-
-            self._db.players.update({ _id: playerDbEntry._id }, updateEntry, {upsert: true}, function(err, numReplaced, upsert) {
-              if (err)
-                console.log(err);
-            });
+            players[i].matchID = newDoc._id;
+            players[i].collection = newDoc.collection;
+            parr.push(players[i]);
           }
- 
-          if (final) {
-            final();
-          }
-        })
-      }
-    });
+
+          self._db.heroData.insert(parr, function (err, docs) {
+            console.log('Inserted new match ' + newDoc._id);
+
+            for (var i in players) {
+              // log unique players in the player database
+              var playerDbEntry = {};
+              playerDbEntry._id = players[i].ToonHandle;
+              playerDbEntry.name = players[i].name;
+              playerDbEntry.uuid = players[i].uuid;
+              playerDbEntry.region = players[i].region;
+              playerDbEntry.realm = players[i].realm;
+
+              // in general this will ensure the most recent tag gets associated with each player
+              playerDbEntry.tag = players[i].tag;
+
+              var updateEntry = { $set: playerDbEntry, $inc: { matches: 1 } };
+
+              self._db.players.update(
+                { _id: playerDbEntry._id },
+                updateEntry,
+                { upsert: true },
+                function (err, numReplaced, upsert) {
+                  if (err) console.log(err);
+                },
+              );
+            }
+
+            if (final) {
+              final();
+            }
+          });
+        }
+      },
+    );
   }
 
   // deletes a match and the associated hero data.
   deleteReplay(matchID, callback) {
     var self = this;
-    this._db.matches.find({ _id: matchID }, function(err, docs) {
+    this._db.matches.find({ _id: matchID }, function (err, docs) {
       if (docs.length === 0) {
         callback();
         return;
@@ -300,11 +319,11 @@ class Database {
       let match = docs[0];
 
       for (let id of match.playerIDs) {
-        self._db.players.update({ _id: id }, { $inc: { matches: -1 }}, { upsert: false });
+        self._db.players.update({ _id: id }, { $inc: { matches: -1 } }, { upsert: false });
       }
 
-      self._db.matches.remove({ _id: matchID }, {}, function(err, numRemoved) {
-        self._db.heroData.remove({ matchID: matchID }, { multi: true }, function(err, numRemoved) {
+      self._db.matches.remove({ _id: matchID }, {}, function (err, numRemoved) {
+        self._db.heroData.remove({ matchID: matchID }, { multi: true }, function (err, numRemoved) {
           callback();
         });
       });
@@ -317,7 +336,7 @@ class Database {
 
   tagReplays(matchIDs, tag, callback) {
     var self = this;
-    this._db.matches.update({ _id: { $in : matchIDs } }, { $addToSet: { tags: tag } }, { multi: true }, function() {
+    this._db.matches.update({ _id: { $in: matchIDs } }, { $addToSet: { tags: tag } }, { multi: true }, function () {
       self._db.heroData.update({ matchID: { $in: matchIDs } }, { $addToSet: { tags: tag } }, { multi: true }, callback);
     });
   }
@@ -328,24 +347,23 @@ class Database {
 
   untagReplays(matchIDs, tag, callback) {
     var self = this;
-    this._db.matches.update({_id: { $in: matchIDs } }, { $pull: { tags: tag } }, { multi: true }, function() {
+    this._db.matches.update({ _id: { $in: matchIDs } }, { $pull: { tags: tag } }, { multi: true }, function () {
       self._db.heroData.update({ matchID: { $in: matchIDs } }, { $pull: { tags: tag } }, { multi: true }, callback);
-    })
+    });
   }
 
   getTags(callback) {
     var self = this;
     let query = {};
     this.preprocessQuery(query);
-    this._db.matches.find(query, function(err, docs) {
+    this._db.matches.find(query, function (err, docs) {
       // create set, then return
       let tags = [];
       for (let doc of docs) {
         if ('tags' in doc) {
           let t = doc.tags;
           for (let tag of t) {
-            if (tags.indexOf(tag) === -1)
-              tags.push(tag);
+            if (tags.indexOf(tag) === -1) tags.push(tag);
           }
         }
       }
@@ -365,46 +383,45 @@ class Database {
   }
 
   changeTeamName(id, name, callback) {
-    this._db.settings.update({ _id: id} , { $set : { name: name } }, {}, callback);
+    this._db.settings.update({ _id: id }, { $set: { name: name } }, {}, callback);
   }
 
   updateTeamPlayers(id, players, callback) {
-    this._db.settings.update({ _id: id}, { players }, {}, callback);
+    this._db.settings.update({ _id: id }, { players }, {}, callback);
   }
 
   addPlayerToTeam(id, player, callback) {
-    this._db.settings.update({_id: id}, { $addToSet: { players: player }}, {}, callback);
+    this._db.settings.update({ _id: id }, { $addToSet: { players: player } }, {}, callback);
   }
 
   removePlayerFromTeam(id, player, callback) {
-    this._db.settings.update({_id:id}, { $pull: { players: player}}, {}, callback);
+    this._db.settings.update({ _id: id }, { $pull: { players: player } }, {}, callback);
   }
 
   getAllTeams(callback) {
-    this._db.settings.find({type: 'team'}, callback);
+    this._db.settings.find({ type: 'team' }, callback);
   }
 
   getTeam(id, callback) {
     var self = this;
-    this._db.settings.findOne({_id: id}, function(err, team) {
+    this._db.settings.findOne({ _id: id }, function (err, team) {
       // teams need to resolve aliases as well, so the playeres array will consist
       // of all actually assigned IDs and aliased IDs
       // resolve all aliases for each player
-      self.getPlayers({ _id: { $in: team.players }}, function(err, players1) {
+      self.getPlayers({ _id: { $in: team.players } }, function (err, players1) {
         // so at this point the team could consist of aliased players (as in an aliased ID was added
         // to the team). We'll need to resolve this first, then run another get players query
         let resolvedIDs = [];
         for (let p of players1) {
           if ('aliasedTo' in p && p.aliaedTo !== '') {
             resolvedIDs.push(p.aliasedTo);
-          }
-          else {
+          } else {
             resolvedIDs.push(p._id);
           }
         }
 
         // run another query
-        self.getPlayers({ _id: { $in: resolvedIDs } }, function(err, players) {
+        self.getPlayers({ _id: { $in: resolvedIDs } }, function (err, players) {
           // players now consists of all root players (no aliases)
           // combine player ids and aliases
           team.resolvedPlayers = players;
@@ -422,7 +439,7 @@ class Database {
           team.players = ids;
 
           callback(err, team);
-        })
+        });
       });
     });
   }
@@ -431,16 +448,15 @@ class Database {
   getTeamByPlayers(players, callback) {
     var self = this;
     // resolve aliases first
-    this.getPlayers({ _id: { $in: players } }, function(err, docs) {
-      let query = { $and: []};
+    this.getPlayers({ _id: { $in: players } }, function (err, docs) {
+      let query = { $and: [] };
       query.type = 'team';
 
       for (let p of docs) {
         if ('aliasedTo' in p && p.aliasedTo !== '') {
           // aliasing ambiguity, allow either or to be on the team
-          query.$and.push({ $or: [{players: p.aliasedTo }, { players: p._id }] });
-        }
-        else {
+          query.$and.push({ $or: [{ players: p.aliasedTo }, { players: p._id }] });
+        } else {
           query.$and.push({ players: p._id });
         }
       }
@@ -455,16 +471,16 @@ class Database {
 
   // callback format: function(teamObject, matchData, heroData)
   getTeamData(teamID, filter, callback) {
-    DB.getTeam(teamID, function(err, team) {
+    DB.getTeam(teamID, function (err, team) {
       // get the match data
       let query = Object.assign({}, filter);
-  
+
       let players = team.players;
-  
+
       if (!('$or' in query)) {
         query.$or = [];
       }
-  
+
       let t0queries = [];
       let t1queries = [];
       if (team.players.length <= 5) {
@@ -473,47 +489,46 @@ class Database {
           t0queries.push({ 'teams.0.ids': players[i] });
           t1queries.push({ 'teams.1.ids': players[i] });
         }
-      }
-      else {
-        // basically we need a match 5 of the players and then we're ok 
+      } else {
+        // basically we need a match 5 of the players and then we're ok
         for (let i = 0; i < 5; i++) {
           const t0key = 'teams.0.ids.' + i;
           const t1key = 'teams.1.ids.' + i;
-  
-          let t0arg = { };
+
+          let t0arg = {};
           t0arg[t0key] = { $in: players };
           let t1arg = {};
           t1arg[t1key] = { $in: players };
-  
+
           t0queries.push(t0arg);
           t1queries.push(t1arg);
         }
       }
-  
+
       query.$or.push({ $and: t0queries });
       query.$or.push({ $and: t1queries });
-  
+
       // execute
-      DB.getMatches(query, function(err, matches) {
+      DB.getMatches(query, function (err, matches) {
         // then get the hero data
         let matchIDs = [];
         for (let i in matches) {
           matchIDs.push(matches[i]._id);
         }
-  
+
         // only want specific users
         let query2 = {
           $and: [
             { ToonHandle: { $in: team.players } },
-            { "with.ids.0": { $in: team.players } },
-            { "with.ids.1": { $in: team.players } },
-            { "with.ids.2": { $in: team.players } },
-            { "with.ids.3": { $in: team.players } },
-            { "with.ids.4": { $in: team.players } }
-          ]
+            { 'with.ids.0': { $in: team.players } },
+            { 'with.ids.1': { $in: team.players } },
+            { 'with.ids.2': { $in: team.players } },
+            { 'with.ids.3': { $in: team.players } },
+            { 'with.ids.4': { $in: team.players } },
+          ],
         };
-  
-        DB.getHeroDataForMatches(matchIDs, query2, function(err, heroData) {
+
+        DB.getHeroDataForMatches(matchIDs, query2, function (err, heroData) {
           // and now finally load the team data
           callback(team, matches, heroData);
         });
@@ -525,11 +540,10 @@ class Database {
   reduceTeams(filter, init, reduce, final) {
     var self = this;
 
-    this.getAllTeams(function(err, teams) {
+    this.getAllTeams(function (err, teams) {
       if (teams.length === 0) {
         final();
-      }
-      else {
+      } else {
         init(teams);
         self.processTeamReduce(teams.pop(), teams, filter, reduce, final);
       }
@@ -542,7 +556,7 @@ class Database {
       return;
     }
     var self = this;
-    self.getTeam(currentTeam._id, function(err, team) {
+    self.getTeam(currentTeam._id, function (err, team) {
       let query = Object.assign({}, filter);
       let players = team.players;
 
@@ -558,14 +572,13 @@ class Database {
           t0queries.push({ 'teams.0.ids': players[i] });
           t1queries.push({ 'teams.1.ids': players[i] });
         }
-      }
-      else {
+      } else {
         // basically we need a match 5 of the players and then we're ok
         for (let i = 0; i < 5; i++) {
           const t0key = 'teams.0.ids.' + i;
           const t1key = 'teams.1.ids.' + i;
 
-          let t0arg = { };
+          let t0arg = {};
           t0arg[t0key] = { $in: players };
           let t1arg = {};
           t1arg[t1key] = { $in: players };
@@ -584,10 +597,14 @@ class Database {
         opts.collectionOverride = true;
       }
 
-      self.getMatches(query, function(err, docs) {
-        reduce(err, docs, team);
-        self.processTeamReduce(remaining.pop(), remaining, filter, reduce, final);
-      }, opts);
+      self.getMatches(
+        query,
+        function (err, docs) {
+          reduce(err, docs, team);
+          self.processTeamReduce(remaining.pop(), remaining, filter, reduce, final);
+        },
+        opts,
+      );
     });
   }
 
@@ -626,7 +643,7 @@ class Database {
     search.$and.push({ rawDate: { $lte: dateToWinTime(dateMax) } });
 
     // this is the one raw call that is not preprocessed by collections for what should be somewhat obvious reasons
-    this._db.matches.find(search, function(err, docs) {
+    this._db.matches.find(search, function (err, docs) {
       callback(docs.length > 0);
     });
   }
@@ -636,7 +653,7 @@ class Database {
     this.preprocessQuery(query);
 
     let self = this;
-    this.resolveMatchFilterAliases(query, function(newQuery) {
+    this.resolveMatchFilterAliases(query, function (newQuery) {
       self._db.matches.count(newQuery, callback);
     });
   }
@@ -657,18 +674,14 @@ class Database {
 
     if ('sort' in opts) {
       let cursor;
-      if ('projection' in opts)
-        cursor = this._db.matches.find(query, opts.projection);
-      else
-        cursor = this._db.matches.find(query);
+      if ('projection' in opts) cursor = this._db.matches.find(query, opts.projection);
+      else cursor = this._db.matches.find(query);
 
       cursor.sort(opts.sort).exec(callback);
-    }
-    else {
+    } else {
       if ('projection' in opts) {
         this._db.matches.find(query, opts.projection, callback);
-      }
-      else {
+      } else {
         this._db.matches.find(query, callback);
       }
     }
@@ -711,7 +724,7 @@ class Database {
 
     // resolve
     var self = this;
-    this.getPlayers({ _id : { $in: ids }}, function(err, players) {
+    this.getPlayers({ _id: { $in: ids } }, function (err, players) {
       for (let player of players) {
         if (player.aliases && player.aliases.length > 0) {
           // replace
@@ -749,8 +762,8 @@ class Database {
     let skip = pageNum * limit;
 
     let self = this;
-    this.resolveMatchFilterAliases(query, function(newQuery) {
-      self._db.matches.find(newQuery, projection).skip(skip).limit(limit).sort({date: -1}).exec(callback);
+    this.resolveMatchFilterAliases(query, function (newQuery) {
+      self._db.matches.find(newQuery, projection).skip(skip).limit(limit).sort({ date: -1 }).exec(callback);
     });
   }
 
@@ -758,8 +771,7 @@ class Database {
   updateMatch(match, callback) {
     if (callback) {
       this._db.matches.update({ _id: match._id }, match, {}, callback);
-    }
-    else {
+    } else {
       this._db.matches.update({ _id: match._id }, match, {});
     }
   }
@@ -770,25 +782,26 @@ class Database {
       {
         $set: {
           picks,
-          bans
-        }
+          bans,
+        },
       },
       {},
-      callback);
+      callback,
+    );
   }
 
   // retrieves matches by id
   getMatchesByID(ids, callback, opts = {}) {
-    let query = {$or: []};
+    let query = { $or: [] };
     for (let i in ids) {
-      query.$or.push({_id: ids[i]});
+      query.$or.push({ _id: ids[i] });
     }
 
     this.getMatches(query, callback, opts);
   }
 
   getHeroDataForID(matchID, callback) {
-    let query = {matchID: matchID};
+    let query = { matchID: matchID };
 
     this.preprocessQuery(query);
     this._db.heroData.find(query, callback);
@@ -812,7 +825,7 @@ class Database {
       return;
     }
 
-    this.getAliasedPlayers(function(err, aliases) {
+    this.getAliasedPlayers(function (err, aliases) {
       // add aliases to the query (which is ToonHandle = {$in : [] }) or a single string
       let toAdd = [];
 
@@ -821,7 +834,7 @@ class Database {
         // cycle through aliases
         for (let a of aliases) {
           // if the player that was aliased has its parent in the query, add the alias to the query.
-          // interface only allows players that have 
+          // interface only allows players that have
           if (p === a.aliasedTo) {
             toAdd.push(a._id);
           }
@@ -836,7 +849,7 @@ class Database {
   getHeroDataForPlayerWithFilter(playerID, filter, callback) {
     var self = this;
 
-    this.getPlayer(playerID, function(err, player) {
+    this.getPlayer(playerID, function (err, player) {
       if (err) {
         callback(err, null);
         return;
@@ -848,7 +861,7 @@ class Database {
 
       if ('aliasedTo' in p && p.aliasedTo !== '') {
         // recurse
-        self.getHeroDataForPlayerWIthFilter(p.aliasedTo, filter, callback); 
+        self.getHeroDataForPlayerWIthFilter(p.aliasedTo, filter, callback);
         return;
       }
 
@@ -859,7 +872,7 @@ class Database {
 
         query.ToonHandle = { $in: ids };
       }
-      
+
       self.preprocessQuery(query);
       self._db.heroData.find(query, callback);
     });
@@ -867,9 +880,9 @@ class Database {
 
   getHeroData(query, callback) {
     this.preprocessQuery(query);
-    
+
     var self = this;
-    this.resolveHeroFilterAliases(query, function(updatedQuery) {
+    this.resolveHeroFilterAliases(query, function (updatedQuery) {
       self._db.heroData.find(updatedQuery, callback);
     });
   }
@@ -877,7 +890,7 @@ class Database {
   getHeroDataForMatches(ids, query, callback) {
     query.$or = [];
     for (let i in ids) {
-      query.$or.push({ matchID : ids[i]});
+      query.$or.push({ matchID: ids[i] });
     }
 
     this.preprocessQuery(query);
@@ -894,18 +907,14 @@ class Database {
   getPlayers(query, callback, opts = {}) {
     if ('sort' in opts) {
       let cursor;
-      if ('projection' in opts)
-        cursor = this._db.players.find(query, opts.projection);
-      else
-        cursor = this._db.players.find(query);
+      if ('projection' in opts) cursor = this._db.players.find(query, opts.projection);
+      else cursor = this._db.players.find(query);
 
       cursor.sort(opts.sort).exec(callback);
-    }
-    else {
+    } else {
       if ('projection' in opts) {
         this._db.players.find(query, opts.projection, callback);
-      }
-      else {
+      } else {
         this._db.players.find(query, callback);
       }
     }
@@ -915,11 +924,11 @@ class Database {
   // note that players are not part of the collection, so uh, i guess the UI should just not show
   // players with 0 things in the database?
   getPlayer(id, callback) {
-    this.getPlayers({_id: id}, callback);
+    this.getPlayers({ _id: id }, callback);
   }
 
   setPlayerNickname(id, name, callback) {
-    this._db.players.update({ _id: id }, { $set : { nickname: name } }, {}, callback);
+    this._db.players.update({ _id: id }, { $set: { nickname: name } }, {}, callback);
   }
 
   updatePlayerAliases(id, aliases, callback) {
@@ -932,7 +941,7 @@ class Database {
     }
 
     // find the root player
-    this._db.players.find({_id: id}, function(err, docs) {
+    this._db.players.find({ _id: id }, function (err, docs) {
       if (err) {
         console.log(err);
         callback(err);
@@ -954,34 +963,44 @@ class Database {
       }
 
       // un-alias current aliases
-      self._db.players.update({ _id: { $in: player.aliases } }, { $set: { 'aliasedTo' : '' } }, { multi: true }, function(err) {
-        if (err) {
-          console.log(err);
-          callback(err);
-          return;
-        }
-
-        // update new aliases
-        player.aliases = aliases;
-        player.save(function(err) {
+      self._db.players.update(
+        { _id: { $in: player.aliases } },
+        { $set: { aliasedTo: '' } },
+        { multi: true },
+        function (err) {
           if (err) {
             console.log(err);
             callback(err);
             return;
           }
 
-          // update all of the aliased players
-          self._db.players.update({ _id: { $in: aliases } }, { $set: { 'aliasedTo' : id } }, { multi: true }, function(err) {
-            callback();
+          // update new aliases
+          player.aliases = aliases;
+          player.save(function (err) {
+            if (err) {
+              console.log(err);
+              callback(err);
+              return;
+            }
+
+            // update all of the aliased players
+            self._db.players.update(
+              { _id: { $in: aliases } },
+              { $set: { aliasedTo: id } },
+              { multi: true },
+              function (err) {
+                callback();
+              },
+            );
           });
-        });
-      });
+        },
+      );
     });
   }
 
   // returns a set of all players that are aliased to something else in the db
   getAliasedPlayers(callback) {
-    const aliasFilter = { $and: [{aliasedTo: { $exists: true } }, { $not: { aliasedTo: '' } }] };
+    const aliasFilter = { $and: [{ aliasedTo: { $exists: true } }, { $not: { aliasedTo: '' } }] };
     this.getPlayers(aliasFilter, callback);
   }
 
@@ -991,8 +1010,7 @@ class Database {
     let stats = {};
     for (let h in data.total) {
       for (let s in data.total[h]) {
-        if (!(s in stats))
-          stats[s] = 0;
+        if (!(s in stats)) stats[s] = 0;
 
         stats[s] += data.total[h][s];
       }
@@ -1010,11 +1028,19 @@ class Database {
   getVersions(callback) {
     let query = {};
     this.preprocessQuery(query);
-    this._db.matches.find(query, function(err, docs) {
-      let versions = {}
+    this._db.matches.find(query, function (err, docs) {
+      let versions = {};
 
       for (let doc of docs) {
-        versions[doc.version.m_build] = doc.version.m_major + '.' + doc.version.m_minor + '.' + doc.version.m_revision + ' (build ' + doc.version.m_build + ')';
+        versions[doc.version.m_build] =
+          doc.version.m_major +
+          '.' +
+          doc.version.m_minor +
+          '.' +
+          doc.version.m_revision +
+          ' (build ' +
+          doc.version.m_build +
+          ')';
       }
 
       callback(versions);
@@ -1024,15 +1050,14 @@ class Database {
   // the DB is versioned based on the parser's current version number.
   getDBVersion(callback) {
     var self = this;
-    this._db.settings.findOne({type: 'version'}, function(err, ver) {
+    this._db.settings.findOne({ type: 'version' }, function (err, ver) {
       if (!ver) {
         // non-existence of version is assumed to mean a new database
         // initialize with current version
-        self._db.settings.insert({type: 'version', version: Parser.VERSION }, function(err, inserted) {
+        self._db.settings.insert({ type: 'version', version: Parser.VERSION }, function (err, inserted) {
           callback(inserted.version);
         });
-      }
-      else {
+      } else {
         callback(ver.version);
       }
     });
@@ -1040,10 +1065,9 @@ class Database {
 
   // this may turn into upgrade functions eventually but for now we'll just do this
   setDBVersion(version, callback) {
-    this._db.settings.update({type: 'version'}, { $set: {version: version} }, {}, function(err, updated) {
+    this._db.settings.update({ type: 'version' }, { $set: { version: version } }, {}, function (err, updated) {
       // basically an on complete callback
-      if (callback)
-        callback();
+      if (callback) callback();
     });
   }
 
@@ -1060,13 +1084,13 @@ class Database {
 
     // get the data
     var self = this;
-    this._db.heroData.count(query, function(err, heroDataCount) {
+    this._db.heroData.count(query, function (err, heroDataCount) {
       let cid = collectionID ? collectionID : 'all';
 
-      self._db.settings.find({ type: 'cache', collectionID: cid }, function(err, docs) {
+      self._db.settings.find({ type: 'cache', collectionID: cid }, function (err, docs) {
         if (docs.length === 0 || docs[0].docLength !== heroDataCount) {
           // no docs exist or data is out of date, recompute
-          self._db.heroData.find(query, function(err, heroData) {
+          self._db.heroData.find(query, function (err, heroData) {
             console.log('recaching for collection ' + cid);
 
             let hdata = summarizeHeroData(heroData);
@@ -1081,13 +1105,17 @@ class Database {
             cache.type = 'cache';
             cache.collectionID = cid;
 
-            self._db.settings.update({ type: 'cache', collectionID: cid }, cache, { upsert: true }, function(err, num, up) {
-              cache.heroData = JSON.parse(cache.heroData);
-              callback(cache);
-            });
+            self._db.settings.update(
+              { type: 'cache', collectionID: cid },
+              cache,
+              { upsert: true },
+              function (err, num, up) {
+                cache.heroData = JSON.parse(cache.heroData);
+                callback(cache);
+              },
+            );
           });
-        }
-        else {
+        } else {
           let cache = docs[0];
           cache.heroData = JSON.parse(cache.heroData);
 
@@ -1102,13 +1130,12 @@ class Database {
   }
 
   getExternalCacheCollectionHeroStats(collectionID, callback) {
-    this._db.settings.find({ type: 'externalCache',  _id: collectionID }, function(err, docs) {
+    this._db.settings.find({ type: 'externalCache', _id: collectionID }, function (err, docs) {
       if (docs.length > 0) {
         let cache = docs[0];
         cache.heroData = JSON.parse(cache.heroData);
         callback(cache);
-      }
-      else {
+      } else {
         callback();
       }
     });
@@ -1121,34 +1148,43 @@ class Database {
     let self = this;
     let tempDB = new Database(path);
 
-    tempDB.load(function() {
-      tempDB.getCollections(function(err, collections) {
-        tempDB.getHeroData({}, function(err, heroData) {
-          let hdata = summarizeHeroData(heroData);
+    tempDB.load(
+      function () {
+        tempDB.getCollections(function (err, collections) {
+          tempDB.getHeroData({}, function (err, heroData) {
+            let hdata = summarizeHeroData(heroData);
 
-          let cache = {};
-          cache.dbName = name;
-          cache.name = name;
-          cache.type = 'externalCache';
-          cache.collectionID = 'all';
-          cache.heroData = JSON.stringify(hdata);
+            let cache = {};
+            cache.dbName = name;
+            cache.name = name;
+            cache.type = 'externalCache';
+            cache.collectionID = 'all';
+            cache.heroData = JSON.stringify(hdata);
 
-          self._db.settings.update({ type: 'externalCache', dbName: cache.dbName, name: cache.name }, cache, { upsert: true }, function(err, num, up) {
-            if (collections.length > 0) {
-              self.processExternalCaches(collections.pop(), name, collections, tempDB, callback);
-            }
-            else {
-              callback();
-            }
-          })
+            self._db.settings.update(
+              { type: 'externalCache', dbName: cache.dbName, name: cache.name },
+              cache,
+              { upsert: true },
+              function (err, num, up) {
+                if (collections.length > 0) {
+                  self.processExternalCaches(collections.pop(), name, collections, tempDB, callback);
+                } else {
+                  callback();
+                }
+              },
+            );
+          });
         });
-      });
-    }, function(log) { console.log(log) ; })
+      },
+      function (log) {
+        console.log(log);
+      },
+    );
   }
 
   processExternalCaches(current, dbName, collections, tempDB, final) {
     let self = this;
-    tempDB.getHeroData({collection: current._id}, function(err, heroData) {
+    tempDB.getHeroData({ collection: current._id }, function (err, heroData) {
       let hdata = summarizeHeroData(heroData);
 
       let cache = {};
@@ -1158,25 +1194,27 @@ class Database {
       cache.collectionID = current._id;
       cache.heroData = JSON.stringify(hdata);
 
-      self._db.settings.update({ type: 'externalCache', dbName: cache.dbName, name: cache.name }, cache, { upsert: true }, function(err, num, up) {
-        if (collections.length === 0) {
-          final();
-        }
-        else {
-          self.processExternalCaches(collections.pop(), dbName, collections, tempDB, final);
-        }
-      })
-    })
+      self._db.settings.update(
+        { type: 'externalCache', dbName: cache.dbName, name: cache.name },
+        cache,
+        { upsert: true },
+        function (err, num, up) {
+          if (collections.length === 0) {
+            final();
+          } else {
+            self.processExternalCaches(collections.pop(), dbName, collections, tempDB, final);
+          }
+        },
+      );
+    });
   }
 
   // external cache stuff
   deleteExternalCache(dbName, callback) {
-    this._db.settings.remove({ dbName: dbName, type: 'externalCache' }, { multi: true }, function(err, numRemoved) {
-      if (err)
-        console.log(err);
+    this._db.settings.remove({ dbName: dbName, type: 'externalCache' }, { multi: true }, function (err, numRemoved) {
+      if (err) console.log(err);
 
-      if (callback)
-        callback();
+      if (callback) callback();
     });
   }
 
@@ -1184,89 +1222,99 @@ class Database {
     const self = this;
     const otherDB = new Database(otherPath);
     progress('Loading other Database');
-    otherDB.load(function() {
-      // basically a straight copy with some settings determined by import types
-      // import types:
-      // - matches: copy matches & hero data
-      // - collections: also copy collections if matches selected, just drop matches in if not.
-      // - teams: imports teams (this will also insert players into the database)
-      // we're gonna do this all sequentially just to keep things clean (so team data may be accessed even if not copying)
-      
-      // collections, if applicable
-      progress('Getting Collections');
-      otherDB.getCollections(function(err, otherCol) {
-        if (err) {
-          final(err);
-          return;
-        }
+    otherDB.load(
+      function () {
+        // basically a straight copy with some settings determined by import types
+        // import types:
+        // - matches: copy matches & hero data
+        // - collections: also copy collections if matches selected, just drop matches in if not.
+        // - teams: imports teams (this will also insert players into the database)
+        // we're gonna do this all sequentially just to keep things clean (so team data may be accessed even if not copying)
 
-        let toInsert = otherCol;
-
-        // insert
-        if (importTypes.indexOf(ImportType.Collections) === -1) {
-          toInsert = [];
-        }
-        self.importCollections(toInsert.pop(), toInsert, progress, function(err) {
+        // collections, if applicable
+        progress('Getting Collections');
+        otherDB.getCollections(function (err, otherCol) {
           if (err) {
             final(err);
             return;
           }
 
-          // teams (and players)
-          progress('Getting Teams');
-          otherDB._db.settings.find({ type: 'team' }, function(err, otherTeams) {
+          let toInsert = otherCol;
+
+          // insert
+          if (importTypes.indexOf(ImportType.Collections) === -1) {
+            toInsert = [];
+          }
+          self.importCollections(toInsert.pop(), toInsert, progress, function (err) {
             if (err) {
               final(err);
               return;
             }
 
-            otherDB._db.players.find({}, function(err, otherPlayers) {
+            // teams (and players)
+            progress('Getting Teams');
+            otherDB._db.settings.find({ type: 'team' }, function (err, otherTeams) {
               if (err) {
                 final(err);
                 return;
               }
 
-              let toInsert = otherTeams;
-              let playersToInsert = otherPlayers;
-
-              if (importTypes.indexOf(ImportType.Teams) === -1) {
-                toInsert = [];
-                playersToInsert = [];
-              }
-              self.importTeams(toInsert.pop(), toInsert, progress, function(err) {
+              otherDB._db.players.find({}, function (err, otherPlayers) {
                 if (err) {
                   final(err);
                   return;
                 }
 
-                self.importPlayers(playersToInsert.pop(), playersToInsert, progress, function(err) {
+                let toInsert = otherTeams;
+                let playersToInsert = otherPlayers;
+
+                if (importTypes.indexOf(ImportType.Teams) === -1) {
+                  toInsert = [];
+                  playersToInsert = [];
+                }
+                self.importTeams(toInsert.pop(), toInsert, progress, function (err) {
                   if (err) {
                     final(err);
                     return;
                   }
 
-                  // matches are complicated a little, but if we're not importing them we can leave now
-                  if (importTypes.indexOf(ImportType.Matches) === -1) {
-                    final();
-                    return;
-                  }
-
-                  // use the regular insert match function, but the data comes from the other database
-                  progress('Getting Matches');
-                  otherDB._db.matches.find({}, function(err, otherMatches) {
+                  self.importPlayers(playersToInsert.pop(), playersToInsert, progress, function (err) {
                     if (err) {
                       final(err);
                       return;
                     }
-                    self.importMatches(otherDB, otherMatches.pop(), otherMatches, progress, importTypes.indexOf(ImportType.Collections) !== -1, final);
+
+                    // matches are complicated a little, but if we're not importing them we can leave now
+                    if (importTypes.indexOf(ImportType.Matches) === -1) {
+                      final();
+                      return;
+                    }
+
+                    // use the regular insert match function, but the data comes from the other database
+                    progress('Getting Matches');
+                    otherDB._db.matches.find({}, function (err, otherMatches) {
+                      if (err) {
+                        final(err);
+                        return;
+                      }
+                      self.importMatches(
+                        otherDB,
+                        otherMatches.pop(),
+                        otherMatches,
+                        progress,
+                        importTypes.indexOf(ImportType.Collections) !== -1,
+                        final,
+                      );
+                    });
                   });
                 });
               });
             });
           });
         });
-      });
-    }, () => { });
+      },
+      () => {},
+    );
   }
 
   importTeams(team, remaining, progress, final) {
@@ -1279,7 +1327,7 @@ class Database {
     progress(`Importing team ${team.name}. Remaining: ${remaining.length}`);
 
     delete team._id;
-    this._db.settings.update({ type: 'team', name: team.name }, team, { upsert: true }, function(err, changed) {
+    this._db.settings.update({ type: 'team', name: team.name }, team, { upsert: true }, function (err, changed) {
       if (err) {
         console.log(err);
         final(err);
@@ -1288,8 +1336,7 @@ class Database {
 
       if (remaining.length === 0) {
         final();
-      }
-      else {
+      } else {
         self.importTeams(remaining.pop(), remaining, progress, final);
       }
     });
@@ -1305,20 +1352,24 @@ class Database {
     progress(`Importing collection ${collection.name}. Remaining: ${remaining.length}`);
 
     delete collection._id;
-    this._db.settings.update({ type: 'collection', name: collection.name }, collection, { upsert: true }, function(err, changed) {
-      if (err) {
-        console.log(err);
-        final(err);
-        return;
-      }
+    this._db.settings.update(
+      { type: 'collection', name: collection.name },
+      collection,
+      { upsert: true },
+      function (err, changed) {
+        if (err) {
+          console.log(err);
+          final(err);
+          return;
+        }
 
-      if (remaining.length === 0) {
-        final();
-      }
-      else {
-        self.importCollections(remaining.pop(), remaining, progress, final);
-      }
-    });
+        if (remaining.length === 0) {
+          final();
+        } else {
+          self.importCollections(remaining.pop(), remaining, progress, final);
+        }
+      },
+    );
   }
 
   importPlayers(player, remaining, progress, final) {
@@ -1329,8 +1380,8 @@ class Database {
 
     const self = this;
     progress(`Importing player ${player._id}. Remaining: ${remaining.length}`);
-    
-    this._db.players.update({ _id: player._id }, player, { upsert: true }, function(err, changed) {
+
+    this._db.players.update({ _id: player._id }, player, { upsert: true }, function (err, changed) {
       if (err) {
         console.log(err);
         final(err);
@@ -1339,8 +1390,7 @@ class Database {
 
       if (remaining.length === 0) {
         final();
-      }  
-      else {
+      } else {
         self.importPlayers(remaining.pop(), remaining, progress, final);
       }
     });
@@ -1356,7 +1406,7 @@ class Database {
     progress(`Importing match ${match._id}. Remaining: ${remaining.length}`);
     const self = this;
     // need to get the player entries
-    otherDB.getHeroDataForID(match._id, function(err, docs) {
+    otherDB.getHeroDataForID(match._id, function (err, docs) {
       if (err) {
         console.log(err);
         final(err);
@@ -1370,11 +1420,10 @@ class Database {
         delete docs[i]._id;
       }
 
-      self.insertReplay(match, docs, collection, function() {
+      self.insertReplay(match, docs, collection, function () {
         if (remaining.length === 0) {
           final();
-        }
-        else {
+        } else {
           self.importMatches(otherDB, remaining.pop(), remaining, progress, useCollection, final);
         }
       });
