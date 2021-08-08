@@ -169,6 +169,10 @@ class Database {
     });
   }
 
+  updateMatchWithToxicityChats(matchID, chats) {
+    
+  }
+
   // i don't think the next two need callbacks but if so i guess i'll have to add it
   addMatchToCollection(matchID, collectionID) {
     // this actually needs to modify two databases to ensure proper data aggregation
@@ -275,7 +279,7 @@ class Database {
                 console.log(err);
             });
           }
-
+ 
           if (final) {
             final();
           }
