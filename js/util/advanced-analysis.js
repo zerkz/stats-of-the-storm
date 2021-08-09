@@ -76,7 +76,7 @@ curl -H "Content-Type: application/json" --data \
     '{comment: {text: "what kind of idiot name is foo?"},
        languages: ["en"],
        requestedAttributes: {TOXICITY:{}} }' \
-https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=AIzaSyB-GMZXWifd3lkD-ojdnJ5FjG8N_L4zBjA
+https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=xxxxxxxx
 
 */
 
